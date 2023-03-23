@@ -1,127 +1,140 @@
 # python-project6 [make_translator]
 ## <한영번역기, seq2seq with attention>
 
-이번에 한영번역기를 만들어보았다.(사실 내가 한거라고는 85% 완성된거에 15% 붙인거지만...) 
-최종으로는 하나의 ipynb파일이 올라가지만, 이걸 하기위해 4개의 ipynb파일을 만들어서 여러가지 실험을 해봤다... 
-여기에는 그 실험기를 적을 예정이다.
-향후 이 파일을 모듈화해서 깃헙에 올릴 예정이다.
+이번에 한영번역기를 만들어보았다.(사실 내가 한거라고는 85% 완성된거에 15% 붙인거지만...)  
+최종으로는 하나의 ipynb파일이 올라가지만, 이걸 하기위해 4개의 ipynb파일을 만들어서 여러가지 실험을 해봤다...  
+여기에는 그 실험기를 적을 예정이다.  
+향후 이 파일을 모듈화해서 깃헙에 올릴 예정이다.  
 
 <import한 파일>
-한국어-영어 번역(병렬) 말뭉치 중 3개 파일(구어체(1), 구어체(2), 대화체) 총 50만 문장. 
+한국어-영어 번역(병렬) 말뭉치 중 3개 파일(구어체(1), 구어체(2), 대화체) 총 50만 문장.  
 [출처 : AI Hub(https://aihub.or.kr/)]
-* 여기서 데이터를 받으려면 가입 후 인증 받아서 신청해야함. 다양한 데이터가 있으므로 둘러보는것도 좋을 듯.
+* 여기서 데이터를 받으려면 가입 후 인증 받아서 신청해야함.  
+  다양한 데이터가 있으므로 둘러보는것도 좋을 듯.  
 
-### 전처리 및 토크나이징
+### 전처리 및 토크나이징  
 
-사실 AIhub의 대부분의 파일들은 문장이 깔끔하게 정렬도 되어있고 전처리할 필요가 거의 없으나, 
-번역시에 반영이 안될수도 있거나 깨질수도 있는 문장이 있을 수 있어 그거를 전처리하는데 집중함.
+사실 AIhub의 대부분의 파일들은 문장이 깔끔하게 정렬도 되어있고 전처리할 필요가 거의 없으나,   
+번역시에 반영이 안될수도 있거나 깨질수도 있는 문장이 있을 수 있어 그거를 전처리하는데 집중함.  
 
 1. unicode_hangeul 함수
 
-<img width="1101" alt="스크린샷 2023-03-23 오후 8 09 50" src="https://user-images.githubusercontent.com/121400054/227186172-3f155482-7efc-4139-9a30-9d94dedfa917.png">
+<img width="1101" alt="스크린샷 2023-03-23 오후 8 09 50" src="https://user-images.githubusercontent.com/121400054/227186172-3f155482-7efc-4139-9a30-9d94dedfa917.png">  
 
-한글을 뗐다 붙이는 작업을 한다. 
-가끔 한글이 예를 들어 '한글'이 아니라 'ㅎㅏㄴㄱㅡㄹ'이렇게 보이거나, 
-설령 '한글'로 잘 보이더라고 막상 문자열 길이(len)를 출력하면 2가 아닌 6이 나오는 경우가 있다.
-그런 경우 뒤에 time_step이나 vocab_size에 영향을 줄 수 있어, 글자를 쪼갰다가 붙이는 함수로 가져왔다.
-NFKC가 아니라 다른 코드도 있으니 찾아보면 좋다.
+한글을 뗐다 붙이는 작업을 한다.  
+가끔 한글이 예를 들어 '한글'이 아니라 'ㅎㅏㄴㄱㅡㄹ'이렇게 보이거나,   
+설령 '한글'로 잘 보이더라고 막상 문자열 길이(len)를 출력하면 2가 아닌 6이 나오는 경우가 있다.  
+그런 경우 뒤에 time_step이나 vocab_size에 영향을 줄 수 있어,  
+글자를 쪼갰다가 붙이는 함수로 가져왔다.  
+NFKC가 아니라 다른 코드도 있으니 찾아보면 좋다.  
 
-2. preprocess_sentence 함수
+2. preprocess_sentence 함수  
 
-<img width="790" alt="스크린샷 2023-03-23 오후 8 14 55" src="https://user-images.githubusercontent.com/121400054/227188166-7a4f8f91-dcdf-4d40-8bf2-6aa13862c945.png">
+<img width="790" alt="스크린샷 2023-03-23 오후 8 14 55" src="https://user-images.githubusercontent.com/121400054/227188166-7a4f8f91-dcdf-4d40-8bf2-6aa13862c945.png">  
 
-한글 전처리 함수, 구두점 사이에 공백을 만드는 이유는 구두점을 토큰으로 분류하여 문장의 경계를 알 수 있도록 하기 위함이다.
-(출처 : https://wikidocs.net/21698)
-그 후 번역이 될 숫자, 영어, 한글, 몇개의 특수문자 등을 제외하고는 정규표현식으로 처리해준다.
-마지막에 lower 객체를 불러오는 이유는, 대문자를 없앰으로써 향후 토크나이저에 피팅시 차원을 축소하기 위함이다.
+한글 전처리 함수. 구두점 사이에 공백을 만드는 이유는,  
+구두점을 토큰으로 분류하여 문장의 경계를 알 수 있도록 하기 위함이다.  
+(출처 : https://wikidocs.net/21698)  
+그 후 번역이 될 숫자, 영어, 한글, 몇개의 특수문자 등을 제외하고는 정규표현식으로 처리해준다.  
+마지막에 lower 객체를 불러오는 이유는,  
+대문자를 없앰으로써 향후 토크나이저에 피팅시 차원을 축소하기 위함이다.  
 
-3. 토크나이저
-이 부분에서 사실 상당히 고민했다. 어떻게 문장을 잘라야 잘 인식을 해서 벡터로 변환이 되고, 
-그 받은 벡터를 잘 인식해서 다시 텍스트로 변환될지 고민이 됐기 때문이다.
-이 부분에서 3가지의 토크나이저를 이용해보았다.(텐서플로 토크나이저 포함하면 4가지) 
-최종적으로는 한글은 HuggingFace Tokenizer를 이용해서 자른 다음 텐서플로 토크나이저에 fit하였고, 
-영어는 그냥 공백을 기준으로 자른 다음 텐서플로 토크나이저에 fit하였다.
+3. 토크나이저  
+이 부분에서 사실 상당히 고민했다.  
+어떻게 문장을 잘라야 잘 인식을 해서 벡터로 변환이 되고,   
+그 받은 벡터를 잘 인식해서 다시 텍스트로 변환될지 고민이 됐기 때문이다.  
+이 부분에서 3가지의 토크나이저를 이용해보았다.(텐서플로 토크나이저 포함하면 4가지)  
+최종적으로는 한글은 HuggingFace Tokenizer를 이용해서 자른 다음 텐서플로 토크나이저에 fit하였고,  
+영어는 그냥 공백을 기준으로 자른 다음 텐서플로 토크나이저에 fit하였다.  
 
-아, 한글은 왜 그냥 공백 기준으로 안잘랐냐면, 
-텐서플로 토크나이저에 fit했을 때 단어뭉치가 20만 문장기준 19만개로 어마어마하게 많이 나왔기 때문이다. 
-영어 문장은 단어 뭉치가 2만개였던거에 비해서.
+아, 한글은 왜 그냥 공백 기준으로 안잘랐냐면,   
+텐서플로 토크나이저에 fit했을 때 단어뭉치가 20만 문장기준 19만개로 어마어마하게 많이 나왔기 때문이다.   
+영어 문장은 단어 뭉치가 2만개였던거에 비해서.  
 
-1) 첫 번째 시도 // 한글 - mecab tokenizer, 영어 - nltk tokenizer
+1) 첫 번째 시도 // 한글 - mecab tokenizer, 영어 - nltk tokenizer  
 
-<img width="1135" alt="스크린샷 2023-03-23 오후 8 53 54" src="https://user-images.githubusercontent.com/121400054/227196058-21148dcc-08e0-4f66-80a7-7f0a368197dd.png">
+<img width="1135" alt="스크린샷 2023-03-23 오후 8 53 54" src="https://user-images.githubusercontent.com/121400054/227196058-21148dcc-08e0-4f66-80a7-7f0a368197dd.png">  
 
-첫 번째로 한글은 mecab으로, 영어는 nltk로 토큰화를 해봤다.
-보기에는 상당히 잘 토큰화가 된것 같다. 하지만,
+첫 번째로 한글은 mecab으로, 영어는 nltk로 토큰화를 해봤다.  
+보기에는 상당히 잘 토큰화가 된것 같다. 하지만,  
 
-<img width="1315" alt="스크린샷 2023-03-23 오후 8 58 05" src="https://user-images.githubusercontent.com/121400054/227197039-b543b02b-7641-4606-a13c-d620dadbbf91.png">
+<img width="1315" alt="스크린샷 2023-03-23 오후 8 58 05" src="https://user-images.githubusercontent.com/121400054/227197039-b543b02b-7641-4606-a13c-d620dadbbf91.png">  
 
-이렇게 인덱스화 한것을 보면 형태소로 상당히 잘게 끊겨들어간 것을 볼 수있다.
-이는 단어 뭉치의 수에도 영향을 미치고, 최종적으로 벡터화했을 때 점수에도 영향을 미칠 것이다.
-참고로, 이렇게 토큰화 한 후 단어 뭉치의 수는 대화체 파일 10만 문장 기준 한글 21090개, 영어 16242개였다.
+이렇게 인덱스화 한것을 보면 형태소로 상당히 잘게 끊겨들어간 것을 볼 수있다.  
+이는 단어 뭉치의 수에도 영향을 미치고,   
+최종적으로 벡터화했을 때 점수에도 영향을 미칠 것이다.  
+참고로, 이렇게 토큰화 한 후 단어 뭉치의 수는 대화체 파일 10만 문장 기준 한글 21090개,   
+영어 16242개였다.  
 
-<img width="335" alt="스크린샷 2023-03-23 오후 9 00 18" src="https://user-images.githubusercontent.com/121400054/227197583-b92a4047-1d5b-4669-a739-c81ae611e573.png">
+<img width="335" alt="스크린샷 2023-03-23 오후 9 00 18" src="https://user-images.githubusercontent.com/121400054/227197583-b92a4047-1d5b-4669-a739-c81ae611e573.png">  
 
-위 단어 뭉치를 이용해 번역한 BLEU 스코어 결과.
-물론 이건 Simple seq2seq를 이용했고, 에폭도 10만 문장 10에폭 밖에 안돌렸지만 그래도 살짝 떨어진다.
+위 단어 뭉치를 이용해 번역한 BLEU 스코어 결과.  
+물론 이건 Simple seq2seq를 이용했고,   
+에폭도 10만 문장 10에폭 밖에 안돌렸지만 그래도 살짝 떨어진다.  
 
-2) 두 번째 시도 // 한글 - huggingFace tokenizer, 영어 - huggingFace tokenizer
+2) 두 번째 시도 // 한글 - huggingFace tokenizer, 영어 - huggingFace tokenizer  
 
-자연어 처리 스타트업 허깅페이스가 개발한 패키지.
-huggingFace tokenizer는 자주 등장하는 서브워드들을 하나의 토큰으로 취급하는 다양한 서브워드 토크나이저를 제공한다.
-(출처 : https://wikidocs.net/99893)
-특히 이 토크나이저는 구글에서 공개한 BERT의 토크나이저를 직접 구현한 BertWordPieceTokenizer가 있다.
-나도 이것을 사용했다.
+자연어 처리 스타트업 허깅페이스가 개발한 패키지.  
+huggingFace tokenizer는 자주 등장하는 서브워드들을 하나의 토큰으로 취급하는 다양한 서브워드 토크나이저를 제공한다.  
+(출처 : https://wikidocs.net/99893)  
+특히 이 토크나이저는 구글에서 공개한 BERT의 토크나이저를 직접 구현한 BertWordPieceTokenizer가 있다.  
+나도 이것을 사용했다.  
 
-이 토크나이저의 특징은 토크나이저를 먼저 학습을 시켜줘야한다는 점이다.
-학습을 시켜서 자주 등장하는 단어의 서브워드를 파악한다.
+이 토크나이저의 특징은 토크나이저를 먼저 학습을 시켜줘야한다는 점이다.  
+학습을 시켜서 자주 등장하는 단어의 서브워드를 파악한다.  
 
-<img width="1092" alt="스크린샷 2023-03-23 오후 9 13 46" src="https://user-images.githubusercontent.com/121400054/227200819-2c9021de-5f5c-4c9a-94ad-8ed8e1d95694.png">
+<img width="1092" alt="스크린샷 2023-03-23 오후 9 13 46" src="https://user-images.githubusercontent.com/121400054/227200819-2c9021de-5f5c-4c9a-94ad-8ed8e1d95694.png">  
 
-이렇게 train을 시켜줘야한다. train의 주체는 당연히 우리가 학습시킬 문장들이다.
-여기서 vocab_size는 단어 집합의 크기, limit_alphabet : 병합 전의 초기 토큰의 허용 개수,
-min_frequency : 최소 해당 횟수만큼 등장한 쌍(pair)의 경우에만 병합 대상으로
-정해줄 수 있다. 나는 5번 미만으로 등장한 단어는 여기 반영하지 않았다.
-병합 전 초기 토큰은 어차피 0개였기 때문에, 나머지는 하이퍼파라미터로 정해줬다.
+이렇게 train을 시켜줘야한다. train의 주체는 당연히 우리가 학습시킬 문장들이다.  
+여기서 vocab_size는 단어 집합의 크기, limit_alphabet : 병합 전의 초기 토큰의 허용 개수,  
+min_frequency : 최소 해당 횟수만큼 등장한 쌍(pair)의 경우에만 병합 대상으로 정해줄 수 있다.   
+나는 5번 미만으로 등장한 단어는 여기 반영하지 않았다.  
+병합 전 초기 토큰은 어차피 0개였기 때문에, 나머지는 하이퍼파라미터로 정해줬다.  
 
-<img width="1083" alt="스크린샷 2023-03-23 오후 9 05 31" src="https://user-images.githubusercontent.com/121400054/227198811-e01e2df1-dd81-45ab-a117-1030e1d5ccb8.png">
+<img width="1083" alt="스크린샷 2023-03-23 오후 9 05 31" src="https://user-images.githubusercontent.com/121400054/227198811-e01e2df1-dd81-45ab-a117-1030e1d5ccb8.png">  
 
-이것을 사용한 결과. 형태소 단위로 끊은게 아니라 위에 설명한 대로 자주 등장한 어휘들을 하나로 끊어준게 돋보인다.
-특히 얘는 과거형도 끊어준다. 참고로 ##는 이 프로그램으로 토큰화할때 붙는 문자열인데,
-나중에 이 토크나이저를 통해 decode할 수도 있다. 그 때 문장을 제대로 다시 변환하기위해 사용되는 문자열이다.
-물론 나는 여기서 그걸 안썼다. 그래서 번역 후에도 ##가 붙어나왔다...
+이것을 사용한 결과. 형태소 단위로 끊은게 아니라 위에 설명한 대로 자주 등장한 어휘들을 하나로 끊어준게 돋보인다.  
+특히 얘는 과거형도 끊어준다. 참고로 ##는 이 프로그램으로 토큰화할때 붙는 문자열인데,  
+나중에 이 토크나이저를 통해 decode할 수도 있다.  
+그 때 문장을 제대로 다시 변환하기위해 사용되는 문자열이다.  
+물론 나는 여기서 그걸 안썼다. 그래서 번역 후에도 ##가 붙어나왔다...  
 
-둘 다 이것을 썼을 때의 문제는 단어 뭉치 크기가 서로 생각보다 차이가 난다는 점이다.
-20만 문장 기준 한글 단어 뭉치의 크기는 44473, 영어 단어 뭉치의 크기는 19655이다.
-그래서, 디코딩 시에 반영이 안되는 단어가 많아졌을 것이다.
+둘 다 이것을 썼을 때의 문제는 단어 뭉치 크기가 서로 생각보다 차이가 난다는 점이다.  
+20만 문장 기준 한글 단어 뭉치의 크기는 44473, 영어 단어 뭉치의 크기는 19655이다.  
+그래서, 디코딩 시에 반영이 안되는 단어가 많아졌을 것이다.  
 
-<img width="1068" alt="스크린샷 2023-03-23 오후 9 10 47" src="https://user-images.githubusercontent.com/121400054/227199908-00cf3352-f87a-4647-b0e8-afd1073b5658.png">
+<img width="1068" alt="스크린샷 2023-03-23 오후 9 10 47" src="https://user-images.githubusercontent.com/121400054/227199908-00cf3352-f87a-4647-b0e8-afd1073b5658.png">  
 
-위 토크나이저로 번역한 결과. 보는 것과 같이 ##가 붙어 나온다.
-그래도 번역이 꽤 잘됐다. 40만 문장을 20만 문장 따로, 20만 문장 따로 에서 각각 10에포크 씩 20에폭을 돌렸기 때문이다.
+위 토크나이저로 번역한 결과. 보는 것과 같이 ##가 붙어 나온다.  
+그래도 번역이 꽤 잘됐다. 40만 문장을 20만 문장 따로,  
+20만 문장 따로 에서 각각 10에포크 씩 20에폭을 돌렸기 때문이다.  
 
-<img width="308" alt="스크린샷 2023-03-23 오후 9 42 56" src="https://user-images.githubusercontent.com/121400054/227207204-f2170192-500a-44b0-9aa5-5ec216fac027.png">
+<img width="308" alt="스크린샷 2023-03-23 오후 9 42 56" src="https://user-images.githubusercontent.com/121400054/227207204-f2170192-500a-44b0-9aa5-5ec216fac027.png">  
 
-이것으로 번역한 결과의 BLEU 스코어는 0.07이었다. 이 결과는 어텐션 모델을 사용했고, 학습을 좀 더 많이 시켜줘서 나오지 않았나 생각한다.
+이것으로 번역한 결과의 BLEU 스코어는 0.07이었다. 이 결과는 어텐션 모델을 사용했고,   
+학습을 좀 더 많이 시켜줘서 나오지 않았나 생각한다.  
 
-3. 최종 : 한글 - huggingface tokenizer / 영어 - 공백 스플릿
+3. 최종 : 한글 - huggingface tokenizer / 영어 - 공백 스플릿  
 
-결국 최종적으로 선택한 것은 한글은 huggingface tokenizer를 쓰되, 영어는 공백으로만 잘라주는 것이었다.
-이렇게 했을 때 한글 문장의 각 단어 의미도 살면서, 영어 문장 단어도 보존이 잘 됐기 때문이다.
-추가로 번역을 했을 때 영어 문장에 ##이 안붙어서 더 깔끔하게 볼 수 있었다.
+결국 최종적으로 선택한 것은 한글은 huggingface tokenizer를 쓰되,  
+영어는 공백으로만 잘라주는 것이었다.  
+이렇게 했을 때 한글 문장의 각 단어 의미도 살면서, 영어 문장 단어도 보존이 잘 됐기 때문이다.  
+추가로 번역을 했을 때 영어 문장에 ##이 안붙어서 더 깔끔하게 볼 수 있었다.  
 
-<img width="1078" alt="스크린샷 2023-03-23 오후 9 37 02" src="https://user-images.githubusercontent.com/121400054/227205791-9017fe05-1b31-46c8-b8f9-952b084e1935.png">
+<img width="1078" alt="스크린샷 2023-03-23 오후 9 37 02" src="https://user-images.githubusercontent.com/121400054/227205791-9017fe05-1b31-46c8-b8f9-952b084e1935.png">  
      
-이처럼 문장이 깔끔하게 잘 토큰화 된 것을 볼 수있다.
-이렇게 토큰화를 하고 단어 뭉치를 만든 결과,
-50만 문장 기준 한글 단어뭉치는 57923개, 영어 단어뭉치는 60886개였다.
-huggingFace의 vocab_size는 60000, limit_alphabet은 10000, min_frequency는 5였다.
+이처럼 문장이 깔끔하게 잘 토큰화 된 것을 볼 수 있다.  
+이렇게 토큰화를 하고 단어 뭉치를 만든 결과,  
+50만 문장 기준 한글 단어뭉치는 57923개,   
+영어 단어뭉치는 60886개였다.  
+huggingFace의 vocab_size는 60000, limit_alphabet은 10000, min_frequency는 5였다.  
 
-최종 모델의 BLEU 스코어 결과는 아래에서 살펴보겠다.
-
-### 번역기 모델링(encoder, decoder)
-
-번역기 모델은 encoder, decoder를 나누고, attention을 적용해줬다. 특히 decoder부분에 attention을 구현하려 노력했다.
-
+최종 모델의 BLEU 스코어 결과는 아래에서 살펴보겠다.  
+  
+### 번역기 모델링(encoder, decoder)  
+  
+번역기 모델은 encoder, decoder를 나누고, attention을 적용해줬다. 특히 decoder부분에 attention을 구현하려 노력했다.  
+  
 ```python
 # 인코더
 # input, layer
@@ -136,10 +149,10 @@ enc_emb = enc_dropout(enc_emb)
 encoder_outputs, enc_h, enc_c = enc_lstm(enc_emb)
 encoder_states = [enc_h, enc_c]
 ```
-
-encoder부분은 attention을 구현하기 위해 lstm layer에 return_seqeunce=True로 변경하여,
-누적된 Hidden state와 마지막 시점의 hidden state, cell state를 받아왔다.
-
+  
+encoder부분은 attention을 구현하기 위해 lstm layer에 return_seqeunce=True로 변경하여,  
+누적된 Hidden state와 마지막 시점의 hidden state, cell state를 받아왔다.  
+  
 ```python
 # 디코더
 # input, layer
@@ -164,21 +177,22 @@ context_vector = att([decoder_output_, encoder_outputs])
 concat = dense_tanh(Concatenate(axis=-1)([context_vector, decoder_output_]))
 decoder_outputs = dec_dense(concat)
 ```
+  
+나는 attention을 이렇게 표현하고자 하였다.  
+  
+1. ht(encoder의 hidden state들), st(decoder의 hidden state)를 활용해 attention score를 구한다.  
+2. softmax를 활용해 Attention Distribution을 구한다.  
+3. 인코더의 각 Attention Weight와 그에 대응하는 hidden state를 가중합하여 Attention Values를 구한다.  
+4. Attention value와 decoder의 t 시점의 hidden state를 연결(concatenate)합니다.  
+5. 출력층 연산의 input이 되는 st를 계산합니다.(tanh지남)  
+6. 최종적인 예측 y^t를 얻습니다.  
 
-필자는 attention을 이렇게 표현하고자 하였다.
-
-1. ht(encoder의 hidden state들), st(decoder의 hidden state)를 활용해 attention score를 구한다.
-2. softmax를 활용해 Attention Distribution을 구한다.
-3. 인코더의 각 Attention Weight와 그에 대응하는 hidden state를 가중합하여 Attention Values를 구한다.
-4. Attention value와 decoder의 t 시점의 hidden state를 연결(concatenate)합니다.
-5. 출력층 연산의 input이 되는 st를 계산합니다.(tanh지남)
-6. 최종적인 예측 y^t를 얻습니다.
-
-직접 위처럼 구현해서 쓸수도 있으나, 쿼리와 키만 넣어주고 attention layer를 사용하면 위 3번 단계까지 계산한 결과를 리턴한다.
-그 이후 4번, 5번, 6번을 아래와 같이 구현하였다.
-사실 tf.math.tanh함수도 써봤는데, 그렇게 했더니 concat한 만큼의 dimention을 그대로 가지게 돼 에러가 났다.
-
-이후에 모델을 구현하였다. 모델 summary는 다음과 같다.
+직접 위처럼 구현해서 쓸수도 있으나, 쿼리와 키만 넣어주고 attention layer를 사용하면 위 3번 단계까지 계산한 결과를 리턴한다.  
+그 이후 4번, 5번, 6번을 아래와 같이 구현하였다.  
+사실 tf.math.tanh함수도 써봤는데, 그렇게 했더니 concat한 만큼의 dimention을 그대로 가지게 돼 에러가 났다.  
+  
+이후에 모델을 구현하였다. 모델 summary는 다음과 같다.  
+  
 ```python
 Model: "model"
 __________________________________________________________________________________________________
@@ -220,39 +234,38 @@ Trainable params: 31,775,062
 Non-trainable params: 0
 __________________________________________________________________________________________________
 ```
-
-이렇게 모델을 구현한 후, 총 약 30에포크를 학습했다. 근데 사실 20에포크 이후로는 val_acc가 더이상 0.895이상으로는 안올라가더라...
-해당 사진은 10에폭을 2번 반복했을 때, 즉 20에폭 학습 이후의 사진이다.
-
-![1](https://user-images.githubusercontent.com/121400054/227212633-2e644c7a-1788-4bcb-b5db-3fa84e89a393.png)
-
-학습한 베스트 모델은 구글 드라이브에 checkpoint.h5로 저장하고,
-모델이 바뀌지 않는 이상 언제든 연속으로 다른 데이터도 학습할 수 있게하였다.
-실제로 AI hub의 다른 데이터도 나중에 학습해볼 예정이다.
-
-```python
-# 체크포인트로 현재 모델의 베스트 weight 저장
-checkpoint_path = '/content/drive/MyDrive/checkpoint.h5'
-checkpoint = ModelCheckpoint(filepath=checkpoint_path, 
-                             save_weights_only=True,
-                             save_best_only=True, 
-                             monitor='val_loss', 
-                             verbose=1
-                            )
-# 연속하여 학습시 체크포인트를 로드하여 이어서 학습합니다.
-model.load_weights(checkpoint_path)
+  
+이렇게 모델을 구현한 후, 총 약 30에포크를 학습했다. 근데 사실 20에포크 이후로는 val_acc가 더이상 0.895이상으로는 안올라가더라...  
+해당 사진은 10에폭을 2번 반복했을 때, 즉 20에폭 학습 이후의 사진이다.  
+  
+![1](https://user-images.githubusercontent.com/121400054/227212633-2e644c7a-1788-4bcb-b5db-3fa84e89a393.png)  
+  
+학습한 베스트 모델은 구글 드라이브에 checkpoint.h5로 저장하고,  
+모델이 바뀌지 않는 이상 언제든 연속으로 다른 데이터도 학습할 수 있게하였다.  
+실제로 AI hub의 다른 데이터도 나중에 학습해볼 예정이다.  
+  
+```python  
+# 체크포인트로 현재 모델의 베스트 weight 저장  
+checkpoint_path = '/content/drive/MyDrive/checkpoint.h5'  
+checkpoint = ModelCheckpoint(filepath=checkpoint_path,   
+                             save_weights_only=True,  
+                             save_best_only=True,  
+                             monitor='val_loss',   
+                             verbose=1  
+                            )  
+# 연속하여 학습시 체크포인트를 로드하여 이어서 학습합니다.  
+model.load_weights(checkpoint_path)  
 ```
-
-이번엔 predict할 때 쓰기 위해, encoder_model과 decoder_model을 각각 설정해주는 부분이다.
-
-```python
-# 인코더(predict)
-encoder_model = Model(encoder_inputs, [encoder_outputs, encoder_states])
+  
+이번엔 predict할 때 쓰기 위해, encoder_model과 decoder_model을 각각 설정해주는 부분이다.  
+  
+```python  
+# 인코더(predict)  
+encoder_model = Model(encoder_inputs, [encoder_outputs, encoder_states])  
 ```
-
-encoder_model을 정의해줄 때, x값은 encoder_input으로, y값은 return_sequence=True한 값들이
-그대로 나오도록 했다.
-
+  
+encoder_model을 정의해줄 때, x값은 encoder_input으로, y값은 return_sequence=True한 값들이 그대로 나오도록 했다.  
+  
 ```python
 # 디코더(predict)
 
@@ -279,13 +292,13 @@ decoder_model = Model(
     [decoder_inputs] + decoder_states_inputs + [encoder_outputs],
     [decoder_outputs] + decoder_states2)
 ```
-
-decoder_model은 attention해준 값을 함께 넣어 정의해줬다.
-x값으로는 lstm모델에 반영될 decoder_input과 decoder_states_inputs,
-그리고 attention때 쓸 encoder_output을 함께 반영하였다.
-y값으로는 attention을 모두 거친 decoder_outputs와, 
-lstm을 거친 마지막 decoder hidden, cell state를 함께 반영해주었다.
-
+  
+decoder_model은 attention해준 값을 함께 넣어 정의해줬다.  
+x값으로는 lstm모델에 반영될 decoder_input과 decoder_states_inputs,  
+그리고 attention때 쓸 encoder_output을 함께 반영하였다.  
+y값으로는 attention을 모두 거친 decoder_outputs와,  
+lstm을 거친 마지막 decoder hidden, cell state를 함께 반영해주었다.  
+  
 ```python
 def translate(sentence):
     sentence = preprocess_sentence(sentence)
@@ -333,11 +346,10 @@ def translate(sentence):
 
     return decoded_sentence.strip('<eos>')
 ```
-
-마지막으로 translate함수 부분이다. encoder_model에 우리가 번역하고싶은 문장(전처리 된)을 넣으면,
-output, state를 리턴하며 그 state와 encoder_output이 attention을 위해 함께 decoder_model에 반영되는 것을 볼수 있다.
-
-
+  
+마지막으로 translate함수 부분이다. encoder_model에 우리가 번역하고싶은 문장(전처리 된)을 넣으면,  
+output, state를 리턴하며 그 state와 encoder_output이 attention을 위해 함께 decoder_model에 반영되는 것을 볼 수 있다.  
+  
 
 
 
