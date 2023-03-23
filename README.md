@@ -6,10 +6,6 @@
 여기에는 그 실험기를 적을 예정이다.
 향후 이 파일을 모듈화해서 깃헙에 올릴 예정이다.
 
-아, 최종적으로 올라간 파일의 BLEU점수가 제일 높은건 아니다. 
-그냥 가장 깔끔하게 코드를 구현하고 설명해서 가져옴.
-(팀원 분 점수가 사실 제일 높았던 것은 안 비밀)
-
 <import한 파일>
 한국어-영어 번역(병렬) 말뭉치 중 3개 파일(구어체(1), 구어체(2), 대화체) 총 50만 문장. 
 [출처 : AI Hub(https://aihub.or.kr/)]
@@ -69,6 +65,7 @@ NFKC가 아니라 다른 코드도 있으니 찾아보면 좋다.
 물론 이건 Simple seq2seq를 이용했고, 에폭도 10만 문장 10에폭 밖에 안돌렸지만 그래도 살짝 떨어진다.
 
 2) 두 번째 시도 // 한글 - huggingFace tokenizer, 영어 - huggingFace tokenizer
+
 자연어 처리 스타트업 허깅페이스가 개발한 패키지.
 huggingFace tokenizer는 자주 등장하는 서브워드들을 하나의 토큰으로 취급하는 다양한 서브워드 토크나이저를 제공한다.
 (출처 : https://wikidocs.net/99893)
@@ -101,3 +98,160 @@ min_frequency : 최소 해당 횟수만큼 등장한 쌍(pair)의 경우에만 �
 
 위 토크나이저로 번역한 결과. 보는 것과 같이 ##가 붙어 나온다.
 그래도 번역이 꽤 잘됐다. 40만 문장을 20만 문장 따로, 20만 문장 따로 에서 각각 10에포크 씩 20에폭을 돌렸기 때문이다.
+
+<img width="308" alt="스크린샷 2023-03-23 오후 9 42 56" src="https://user-images.githubusercontent.com/121400054/227207204-f2170192-500a-44b0-9aa5-5ec216fac027.png">
+
+이것으로 번역한 결과의 BLEU 스코어는 0.07이었다. 이 결과는 어텐션 모델을 사용했고, 학습을 좀 더 많이 시켜줘서 나오지 않았나 생각한다.
+
+3. 최종 : 한글 - huggingface tokenizer / 영어 - 공백 스플릿
+
+결국 최종적으로 선택한 것은 한글은 huggingface tokenizer를 쓰되, 영어는 공백으로만 잘라주는 것이었다.
+이렇게 했을 때 한글 문장의 각 단어 의미도 살면서, 영어 문장 단어도 보존이 잘 됐기 때문이다.
+추가로 번역을 했을 때 영어 문장에 ##이 안붙어서 더 깔끔하게 볼 수 있었다.
+
+<img width="1078" alt="스크린샷 2023-03-23 오후 9 37 02" src="https://user-images.githubusercontent.com/121400054/227205791-9017fe05-1b31-46c8-b8f9-952b084e1935.png">
+     
+이처럼 문장이 깔끔하게 잘 토큰화 된 것을 볼 수있다.
+이렇게 토큰화를 하고 단어 뭉치를 만든 결과,
+50만 문장 기준 한글 단어뭉치는 57923개, 영어 단어뭉치는 60886개였다.
+huggingFace의 vocab_size는 60000, limit_alphabet은 10000, min_frequency는 5였다.
+
+최종 모델의 BLEU 스코어 결과는 아래에서 살펴보겠다.
+
+### 번역기 모델링(encoder, decoder)
+
+번역기 모델은 encoder, decoder를 나누고, attention을 적용해줬다. 특히 decoder부분에 attention을 구현하려 노력했다.
+
+```python
+# 인코더
+# input, layer
+encoder_inputs = Input(shape = (MAX_ENC_LEN,))
+enc_emb_layer = Embedding(SRC_VOCAB_SIZE, EMBEDDING_DIM, name='ENC_Embedding')
+enc_dropout = Dropout(0.2, name='ENC_Dropout')
+enc_lstm = LSTM(HIDDEN_DIM, return_state=True, return_sequences=True, name='ENC_LSTM')
+
+# graph
+enc_emb = enc_emb_layer(encoder_inputs)
+enc_emb = enc_dropout(enc_emb)
+encoder_outputs, enc_h, enc_c = enc_lstm(enc_emb)
+encoder_states = [enc_h, enc_c]
+```
+
+encoder부분은 attention을 구현하기 위해 lstm layer에 return_seqeunce=True로 변경하여,
+누적된 Hidden state와 마지막 시점의 hidden state, cell state를 받아왔다.
+
+```python
+# 디코더
+# input, layer
+decoder_inputs = Input(shape = (MAX_DEC_LEN,))
+dec_emb_layer = Embedding(TAR_VOCAB_SIZE, EMBEDDING_DIM, name='DEC_Embedding')
+dec_dropout = Dropout(0.2, name='DEC_Dropout')
+dec_lstm = LSTM(HIDDEN_DIM, return_state=True, return_sequences=True, name='DEC_LSTM')
+att = Attention()
+dense_tanh = Dense(HIDDEN_DIM, activation = 'tanh')
+dec_dense = Dense(TAR_VOCAB_SIZE, activation='softmax', name='DEC_Dense')
+dec_emb = dec_emb_layer(decoder_inputs)
+dec_emb = dec_dropout(dec_emb)
+decoder_output_, dec_h, dec_c = dec_lstm(dec_emb, initial_state=encoder_states)
+
+# 어텐션을 구현해보자
+# attention_score = tf.matmul(dec_h, encoder_outputs, transpose_b=True)
+# attention_weight = tf.nn.softmax(attention_score)
+# attention_values = tf.matmul(attention_weight, encoder_outputs)
+
+# 어텐션 클래스를 사용해보자
+context_vector = att([decoder_output_, encoder_outputs])
+concat = dense_tanh(Concatenate(axis=-1)([context_vector, decoder_output_]))
+decoder_outputs = dec_dense(concat)
+```
+
+필자는 attention을 이렇게 표현하고자 하였다.
+
+1. ht(encoder의 hidden state들), st(decoder의 hidden state)를 활용해 attention score를 구한다.
+2. softmax를 활용해 Attention Distribution을 구한다.
+3. 인코더의 각 Attention Weight와 그에 대응하는 hidden state를 가중합하여 Attention Values를 구한다.
+4. Attention value와 decoder의 t 시점의 hidden state를 연결(concatenate)합니다.
+5. 출력층 연산의 input이 되는 st를 계산합니다.(tanh지남)
+6. 최종적인 예측 y^t를 얻습니다.
+
+직접 위처럼 구현해서 쓸수도 있으나, 쿼리와 키만 넣어주고 attention layer를 사용하면 위 3번 단계까지 계산한 결과를 리턴한다.
+그 이후 4번, 5번, 6번을 아래와 같이 구현하였다.
+사실 tf.math.tanh함수도 써봤는데, 그렇게 했더니 concat한 만큼의 dimention을 그대로 가지게 돼 에러가 났다.
+
+이후에 모델을 구현하였다. 모델 summary는 다음과 같다.
+```python
+Model: "model"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_1 (InputLayer)           [(None, 50)]         0           []                               
+                                                                                                  
+ input_2 (InputLayer)           [(None, 64)]         0           []                               
+                                                                                                  
+ ENC_Embedding (Embedding)      (None, 50, 128)      7414144     ['input_1[0][0]']                
+                                                                                                  
+ DEC_Embedding (Embedding)      (None, 64, 128)      7793408     ['input_2[0][0]']                
+                                                                                                  
+ ENC_Dropout (Dropout)          (None, 50, 128)      0           ['ENC_Embedding[0][0]']          
+                                                                                                  
+ DEC_Dropout (Dropout)          (None, 64, 128)      0           ['DEC_Embedding[0][0]']          
+                                                                                                  
+ ENC_LSTM (LSTM)                [(None, 50, 256),    394240      ['ENC_Dropout[0][0]']            
+                                 (None, 256),                                                     
+                                 (None, 256)]                                                     
+                                                                                                  
+ DEC_LSTM (LSTM)                [(None, 64, 256),    394240      ['DEC_Dropout[0][0]',            
+                                 (None, 256),                     'ENC_LSTM[0][1]',               
+                                 (None, 256)]                     'ENC_LSTM[0][2]']               
+                                                                                                  
+ attention (Attention)          (None, 64, 256)      0           ['DEC_LSTM[0][0]',               
+                                                                  'ENC_LSTM[0][0]']               
+                                                                                                  
+ concatenate (Concatenate)      (None, 64, 512)      0           ['attention[0][0]',              
+                                                                  'DEC_LSTM[0][0]']               
+                                                                                                  
+ dense (Dense)                  (None, 64, 256)      131328      ['concatenate[0][0]']            
+                                                                                                  
+ DEC_Dense (Dense)              (None, 64, 60886)    15647702    ['dense[0][0]']                  
+                                                                                                  
+==================================================================================================
+Total params: 31,775,062
+Trainable params: 31,775,062
+Non-trainable params: 0
+__________________________________________________________________________________________________
+```
+
+이렇게 모델을 구현한 후, 총 약 30에포크를 학습했다. 근데 사실 20에포크 이후로는 val_acc가 더이상 0.895이상으로는 안올라가더라...
+해당 사진은 10에폭을 2번 반복했을 때, 즉 20에폭 학습 이후의 사진이다.
+
+![1](https://user-images.githubusercontent.com/121400054/227212633-2e644c7a-1788-4bcb-b5db-3fa84e89a393.png)
+
+학습한 베스트 모델은 구글 드라이브에 checkpoint.h5로 저장하고,
+모델이 바뀌지 않는 이상 언제든 연속으로 다른 데이터도 학습할 수 있게하였다.
+실제로 AI hub의 다른 데이터도 나중에 학습해볼 예정이다.
+
+```python
+# 체크포인트로 현재 모델의 베스트 weight 저장
+checkpoint_path = '/content/drive/MyDrive/checkpoint.h5'
+checkpoint = ModelCheckpoint(filepath=checkpoint_path, 
+                             save_weights_only=True,
+                             save_best_only=True, 
+                             monitor='val_loss', 
+                             verbose=1
+                            )
+# 연속하여 학습시 체크포인트를 로드하여 이어서 학습합니다.
+model.load_weights(checkpoint_path)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
