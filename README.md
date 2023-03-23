@@ -51,7 +51,7 @@ NFKC가 아니라 다른 코드도 있으니 찾아보면 좋다.
 텐서플로 토크나이저에 fit했을 때 단어뭉치가 20만 문장기준 19만개로 어마어마하게 많이 나왔기 때문이다.   
 영어 문장은 단어 뭉치가 2만개였던거에 비해서.  
 
-1) 첫 번째 시도 // 한글 - mecab tokenizer, 영어 - nltk tokenizer  
+3-1. 첫 번째 시도 // 한글 - mecab tokenizer, 영어 - nltk tokenizer  
 
 <img width="1135" alt="스크린샷 2023-03-23 오후 8 53 54" src="https://user-images.githubusercontent.com/121400054/227196058-21148dcc-08e0-4f66-80a7-7f0a368197dd.png">  
 
@@ -72,7 +72,7 @@ NFKC가 아니라 다른 코드도 있으니 찾아보면 좋다.
 물론 이건 Simple seq2seq를 이용했고,   
 에폭도 10만 문장 10에폭 밖에 안돌렸지만 그래도 살짝 떨어진다.  
 
-2) 두 번째 시도 // 한글 - huggingFace tokenizer, 영어 - huggingFace tokenizer  
+3-2. 두 번째 시도 // 한글 - huggingFace tokenizer, 영어 - huggingFace tokenizer  
 
 자연어 처리 스타트업 허깅페이스가 개발한 패키지.  
 huggingFace tokenizer는 자주 등장하는 서브워드들을 하나의 토큰으로 취급하는 다양한 서브워드 토크나이저를 제공한다.  
@@ -114,7 +114,7 @@ min_frequency : 최소 해당 횟수만큼 등장한 쌍(pair)의 경우에만 �
 이것으로 번역한 결과의 BLEU 스코어는 0.07이었다. 이 결과는 어텐션 모델을 사용했고,   
 학습을 좀 더 많이 시켜줘서 나오지 않았나 생각한다.  
 
-3. 최종 : 한글 - huggingface tokenizer / 영어 - 공백 스플릿  
+3-3. 최종 : 한글 - huggingface tokenizer / 영어 - 공백 스플릿  
 
 결국 최종적으로 선택한 것은 한글은 huggingface tokenizer를 쓰되,  
 영어는 공백으로만 잘라주는 것이었다.  
