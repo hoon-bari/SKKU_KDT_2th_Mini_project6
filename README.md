@@ -239,7 +239,7 @@ checkpoint = ModelCheckpoint(filepath=checkpoint_path,
                              monitor='val_loss',   
                              verbose=1  
                             )  
-# 연속하여 학습시 체크포인트를 로드하여 이어서 학습합니다.  
+# 연속하여 학습시 체크포인트를 로드하여 이어서 학습 
 model.load_weights(checkpoint_path)  
 ```
   
