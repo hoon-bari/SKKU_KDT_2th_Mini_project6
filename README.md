@@ -243,12 +243,99 @@ checkpoint = ModelCheckpoint(filepath=checkpoint_path,
 model.load_weights(checkpoint_path)
 ```
 
+이번엔 predict할 때 쓰기 위해, encoder_model과 decoder_model을 각각 설정해주는 부분이다.
 
+```python
+# 인코더(predict)
+encoder_model = Model(encoder_inputs, [encoder_outputs, encoder_states])
+```
 
+encoder_model을 정의해줄 때, x값은 encoder_input으로, y값은 return_sequence=True한 값들이
+그대로 나오도록 했다.
 
+```python
+# 디코더(predict)
 
+# Input Tensors : 이전 시점의 상태를 보관할 텐서
+decoder_input_h = Input(shape=(HIDDEN_DIM,))
+decoder_input_c = Input(shape=(HIDDEN_DIM,))
 
+decoder_states_inputs = [decoder_input_h, decoder_input_c]
 
+# 훈련 때 사용했던 임베딩 층을 재사용
+x = dec_emb_layer(decoder_inputs)
+
+# 다음 단어 예측을 위해 이전 시점의 상태를 현 시점의 초기 상태로 사용
+x, state_h2, state_c2 = dec_lstm(x, initial_state=decoder_states_inputs)
+decoder_states2 = [state_h2, state_c2]
+
+# 수정된 디코더
+attn_layer = att([x, encoder_outputs])
+decoder_concat = Concatenate(axis=-1)([attn_layer, x])
+attn_out = dense_tanh(decoder_concat)
+decoder_outputs = dec_dense(attn_out)
+
+decoder_model = Model(
+    [decoder_inputs] + decoder_states_inputs + [encoder_outputs],
+    [decoder_outputs] + decoder_states2)
+```
+
+decoder_model은 attention해준 값을 함께 넣어 정의해줬다.
+x값으로는 lstm모델에 반영될 decoder_input과 decoder_states_inputs,
+그리고 attention때 쓸 encoder_output을 함께 반영하였다.
+y값으로는 attention을 모두 거친 decoder_outputs와, 
+lstm을 거친 마지막 decoder hidden, cell state를 함께 반영해주었다.
+
+```python
+def translate(sentence):
+    sentence = preprocess_sentence(sentence)
+    tokens = hug_kor_tok.encode(sentence).tokens
+
+    # 입력 문장 토큰 -> 라벨링
+    enc_input = tokenizer_kor.texts_to_sequences([tokens])
+
+    # 입력 문장 라벨링 -> 패딩 
+    enc_input = tf.keras.preprocessing.sequence.pad_sequences(enc_input, maxlen=MAX_ENC_LEN, padding='post')
+    encoder_output, states_value = encoder_model.predict(enc_input)
+
+    # Decoder input인 <SOS>에 해당하는 정수 생성
+    target_seq = np.zeros((1,1))
+    target_seq[0, 0] = tar2idx['<sos>']
+
+    # prediction 시작
+        # stop_condition이 True가 될 때까지 루프 반복
+        # 구현의 간소화를 위해서 이 함수는 배치 크기를 1로 가정합니다.
+    stop_condition = False
+    decoded_sentence = ''
+
+    for t in range(MAX_DEC_LEN):
+
+        # 이전 시점의 상태 states_value를 현 시점의 초기 상태로 사용
+        output_tokens, h, c = decoder_model.predict([target_seq] + states_value + [encoder_output], verbose = 0)
+
+        # 예측 결과를 단어로 변환
+        result_token_index = np.argmax(output_tokens[0, -1, :])
+        result_word = idx2tar[result_token_index]
+
+        # 현재 시점의 예측 단어를 예측 문장에 추가
+        decoded_sentence += ' ' + result_word
+
+        # 현재 시점의 예측 결과 -> 다음 시점의 입력으로 업데이트
+        target_seq = np.zeros((1,1))
+        target_seq[0, 0] = result_token_index
+
+        # 현재 시점의 상태 ->  다음 시점의 상태로 업데이트
+        states_value = [h, c]
+
+        #  Stop condition <eos>에 도달하면 중단.
+        if result_word == '<eos>':
+            break 
+
+    return decoded_sentence.strip('<eos>')
+```
+
+마지막으로 translate함수 부분이다. encoder_model에 우리가 번역하고싶은 문장(전처리 된)을 넣으면,
+output, state를 리턴하며 그 state와 encoder_output이 attention을 위해 함께 decoder_model에 반영되는 것을 볼수 있다.
 
 
 
