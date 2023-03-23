@@ -345,7 +345,7 @@ output, state를 리턴하며 그 state와 encoder_output이 attention을 위해
 
 <img width="352" alt="스크린샷 2023-03-23 오후 10 44 24" src="https://user-images.githubusercontent.com/121400054/227222918-04cfc691-69aa-4053-a4e4-db1fc2be7925.png">  
 
-위와 비교하면 매우 잘 나오는 것을 알 수 있다.  
+위와 비교하면 잘 나오는 것을 알 수 있다. 물론 3시간 학습한 번역기 성능이 어떻겠냐만은...  
 (5번 정도 실행했는데 0.12 ~ 0.16이상까지 나오는 듯하다. 샘플은 50 문장이다.)  
   
 ### 느낀 점
