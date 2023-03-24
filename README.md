@@ -943,7 +943,7 @@ state_c = Concatenate()([forward_c, backward_c])
 encoder_states = [state_h,state_c]
 ```
 
-Bidirectional LSTM을 여기서는 2개를 쌓은 것을 볼 수 있다. 
+Bidirectional LSTM을 여기서는 2개를 쌓은 것을 볼 수 있다.  
 추가적으로, dropout을 0.5로 설정하였는데 논문에는 0.2로 되어있으나 다른 결과를 보기 위해 은수님이 변경하였다.  
   
   
