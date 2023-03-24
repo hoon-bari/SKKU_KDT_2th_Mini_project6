@@ -923,7 +923,7 @@ def translate(sentence):
 ### <은수> Bonus  
   
   
-추가로 은수님은 위 모델을 확장하여 다른 모델까지 구현을 하였다. reference는 역시 luong의 논문이다.  
+추가로 은수 위 모델을 확장하여 다른 모델까지 구현을 하였다. reference는 역시 luong의 논문이다.  
 여기서는 Embedding Dimention을 500으로 줄여서 설정하였다. 다른 하이퍼 파라미터는 같다.  
 
 ```python
