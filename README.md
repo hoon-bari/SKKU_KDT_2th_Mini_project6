@@ -1,5 +1,5 @@
 # python-project6 [make_translator]  
-## <한영번역기, seq2seq with attention>  
+## <한영번역기, Simple Seq2Seq and Seq2Seq with Attention>  
   
 이번에 한영번역기를 만들어보았다.(사실 한거라고는 85% 완성된거에 15% 붙인거지만... )  
 최종적으로는 팀원 당 각각 하나의 ipynb파일이 올라갔지만,  
