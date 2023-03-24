@@ -208,12 +208,14 @@ decoder_output_, dec_h, dec_c = dec_lstm(dec_emb, initial_state=encoder_states)
 # attention_score = tf.matmul(decoder_output_, encoder_outputs, transpose_b=True)
 # attention_weight = tf.nn.softmax(attention_score)
 # context_vector = tf.matmul(attention_weight, encoder_outputs)
-# concat = dense_tanh(Concatenate(axis=-1)([context_vector, decoder_output_]))
-# decoder_outputs = dec_dense(concat)
+# concat = Concatenate(axis=-1)([context_vector, decoder_output_])
+# tanh_concat = dense_tanh(concat)
+# decoder_outputs = dec_dense(tanh_concat)
 
 # 어텐션 클래스를 사용해보자
 context_vector = att([decoder_output_, encoder_outputs])
-concat = dense_tanh(Concatenate(axis=-1)([context_vector, decoder_output_]))
+concat = Concatenate(axis=-1)([context_vector, decoder_output_])
+tanh_concat = dense_tanh(concat)
 decoder_outputs = dec_dense(concat)
 ```
   
@@ -272,7 +274,7 @@ ________________________________________________________________________________
  concatenate (Concatenate)      (None, 64, 512)      0           ['attention[0][0]',              
                                                                   'DEC_LSTM[0][0]']               
                                                                                                   
-  tanh_dense (Dense)                  (None, 64, 256)      131328      ['concatenate[0][0]']            
+ tanh_dense (Dense)                  (None, 64, 256)      131328      ['concatenate[0][0]']            
                                                                                                   
  DEC_Dense (Dense)              (None, 64, 60886)    15647702    ['dense[0][0]']                  
                                                                                                   
