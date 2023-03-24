@@ -87,7 +87,7 @@ NFKC가 아니라 다른 방법도 있으니 찾아보면 좋다.
   
   
 위 단어 뭉치를 이용해 번역한 BLEU 스코어 결과.  
-물론 이건 Simple seq2seq를 이용했고, 에폭도 10만 문장, 10에폭 밖에 안돌렸지만 그래도 살짝 떨어진다.  
+물론 이건 Simple seq2seq를 이용했고, 10만 문장기준 10에폭 밖에 안돌렸지만 그래도 살짝 떨어진다.  
   
   
 **3-2. 두 번째 시도 // 한글 - huggingFace tokenizer, 영어 - huggingFace tokenizer**  
