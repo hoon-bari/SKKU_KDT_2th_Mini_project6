@@ -189,7 +189,8 @@ decoder_outputs = dec_dense(concat)
   
 아, 하이퍼파라미터는 다음과 같이 설정하였다.  
 BATCH_SIZE = 256, EPOCHS = 10, EMBEDDING_DIM = 128, HIDDEN_DIM = 256, NUM_SAMPLES = 500000  
-이후에 모델을 구현하였다. 모델 summary는 다음과 같다.  
+이후에 모델을 구현하였다.
+어텐션 layer를 적용한 model summary는 다음과 같다.
   
 ```python
 Model: "model"
@@ -231,6 +232,55 @@ Total params: 31,775,062
 Trainable params: 31,775,062
 Non-trainable params: 0
 __________________________________________________________________________________________________
+```
+
+attention을 안쓰고, attention을 직접 계산해서 모델을 구현하면 좀 더 직관적으로 어텐션이 어떻게 진행되는지 알 수있다.
+아래는 attention을 직접 구현한 model summary다.
+  
+```python
+Model: "model_1"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_1 (InputLayer)           [(None, 50)]         0           []                               
+                                                                                                  
+ input_3 (InputLayer)           [(None, 64)]         0           []                               
+                                                                                                  
+ ENC_Embedding (Embedding)      (None, 50, 128)      7413760     ['input_1[0][0]']                
+                                                                                                  
+ DEC_Embedding (Embedding)      (None, 64, 128)      7793408     ['input_3[0][0]']                
+                                                                                                  
+ ENC_Dropout (Dropout)          (None, 50, 128)      0           ['ENC_Embedding[0][0]']          
+                                                                                                  
+ DEC_Dropout (Dropout)          (None, 64, 128)      0           ['DEC_Embedding[0][0]']          
+                                                                                                  
+ ENC_LSTM (LSTM)                [(None, 50, 256),    394240      ['ENC_Dropout[0][0]']            
+                                 (None, 256),                                                     
+                                 (None, 256)]                                                     
+                                                                                                  
+ DEC_LSTM (LSTM)                [(None, 64, 256),    394240      ['DEC_Dropout[0][0]',            
+                                 (None, 256),                     'ENC_LSTM[0][1]',               
+                                 (None, 256)]                     'ENC_LSTM[0][2]']               
+                                                                                                  
+ tf.linalg.matmul (TFOpLambda)  (None, 64, 50)       0           ['DEC_LSTM[0][0]',               
+                                                                  'ENC_LSTM[0][0]']               
+                                                                                                  
+ tf.nn.softmax (TFOpLambda)     (None, 64, 50)       0           ['tf.linalg.matmul[0][0]']       
+                                                                                                  
+ tf.linalg.matmul_1 (TFOpLambda  (None, 64, 256)     0           ['tf.nn.softmax[0][0]',          
+ )                                                                'ENC_LSTM[0][0]']               
+                                                                                                  
+ concatenate_1 (Concatenate)    (None, 64, 512)      0           ['tf.linalg.matmul_1[0][0]',     
+                                                                  'DEC_LSTM[0][0]']               
+                                                                                                  
+ dense_1 (Dense)                (None, 64, 256)      131328      ['concatenate_1[0][0]']          
+                                                                                                  
+ DEC_Dense (Dense)              (None, 64, 60886)    15647702    ['dense_1[0][0]']                
+                                                                                                  
+==================================================================================================
+Total params: 31,774,678
+Trainable params: 31,774,678
+Non-trainable params: 0
 ```
   
 이렇게 모델을 구현한 후, 10에포크를 3번 반복, 총 30에포크 정도를 학습했다. 근데 사실 20에포크 이후로는 val_acc가 0.9이상으로는 안올라가더라...  
