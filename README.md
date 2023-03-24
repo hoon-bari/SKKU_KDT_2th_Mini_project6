@@ -161,9 +161,11 @@ dec_emb = dec_dropout(dec_emb)
 decoder_output_, dec_h, dec_c = dec_lstm(dec_emb, initial_state=encoder_states)
 
 # 어텐션을 구현해보자
-# attention_score = tf.matmul(dec_h, encoder_outputs, transpose_b=True)
+# attention_score = tf.matmul(decoder_output_, encoder_outputs, transpose_b=True)
 # attention_weight = tf.nn.softmax(attention_score)
-# attention_values = tf.matmul(attention_weight, encoder_outputs)
+# context_vector = tf.matmul(attention_weight, encoder_outputs)
+# concat = dense_tanh(Concatenate(axis=-1)([context_vector, decoder_output_]))
+# decoder_outputs = dec_dense(concat)
 
 # 어텐션 클래스를 사용해보자
 context_vector = att([decoder_output_, encoder_outputs])
@@ -173,7 +175,7 @@ decoder_outputs = dec_dense(concat)
   
 나는 attention을 이렇게 표현하고자 하였다.  
   
-1. ht(encoder의 hidden state들), st(decoder의 hidden state)를 활용해 attention score를 구한다.  
+1. st(decoder의 hidden state), ht(encoder의 hidden state들)를 활용해 attention score를 구한다.  
 2. softmax를 활용해 Attention Distribution을 구한다.  
 3. 인코더의 각 Attention Weight와 그에 대응하는 hidden state를 가중합하여 Attention Values를 구한다.  
 4. Attention value와 decoder의 t 시점의 hidden state를 연결(concatenate)합니다.  
@@ -182,7 +184,8 @@ decoder_outputs = dec_dense(concat)
 
 직접 위처럼 구현해서 쓸수도 있으나, 쿼리와 키만 넣어주고 attention layer를 사용하면 위 3번 단계까지 계산한 결과를 리턴한다.  
 그 이후 4번, 5번, 6번을 아래와 같이 구현하였다.  
-사실 tf.math.tanh함수도 써봤는데, 그렇게 했더니 concat한 만큼의 dimention을 그대로 가지게 돼 에러가 났다.  
+5번의 경우 tf.math.tanh함수도 써봤는데, 그렇게 했더니 concat한 만큼의 dimention을 그대로 가지게 돼 에러가 나더라...
+에러를 스크린샷 찍고싶었는데 아쉽다.  
   
 이후에 모델을 구현하였다. 모델 summary는 다음과 같다.  
   
