@@ -184,7 +184,7 @@ decoder_outputs = dec_dense(concat)
 
 직접 위처럼 구현해서 쓸수도 있으나, 쿼리와 키만 넣어주고 attention layer를 사용하면 위 3번 단계까지 계산한 결과를 리턴한다.  
 그 이후 4번, 5번, 6번을 아래와 같이 구현하였다.  
-5번의 경우 tf.math.tanh함수도 써봤는데, 그렇게 했더니 concat한 만큼의 dimention을 그대로 가지게 돼 에러가 나더라...
+5번의 경우 tf.math.tanh함수도 써봤는데, 그렇게 했더니 concat한 만큼의 dimention을 그대로 가지게 돼 에러가 나더라...  
 에러를 스크린샷 찍고싶었는데 아쉽다.  
   
 아, 하이퍼파라미터는 다음과 같이 설정하였다.  
@@ -234,8 +234,8 @@ Non-trainable params: 0
 __________________________________________________________________________________________________
 ```
 
-attention을 안쓰고, attention을 직접 계산해서 모델을 구현하면 좀 더 직관적으로 어텐션이 어떻게 진행되는지 알 수있다.
-아래는 attention을 직접 구현한 model summary다.
+attention을 안쓰고, attention을 직접 계산해서 모델을 구현하면 좀 더 직관적으로 어텐션이 어떻게 진행되는지 알 수 있다.  
+아래는 attention을 직접 구현한 model summary다.  
   
 ```python
 Model: "model_1"
@@ -273,7 +273,7 @@ ________________________________________________________________________________
  concatenate_1 (Concatenate)    (None, 64, 512)      0           ['tf.linalg.matmul_1[0][0]',     
                                                                   'DEC_LSTM[0][0]']               
                                                                                                   
- dense_1 (Dense)                (None, 64, 256)      131328      ['concatenate_1[0][0]']          
+ tanh_dense (Dense)                (None, 64, 256)      131328      ['concatenate_1[0][0]']          
                                                                                                   
  DEC_Dense (Dense)              (None, 64, 60886)    15647702    ['dense_1[0][0]']                
                                                                                                   
