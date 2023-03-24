@@ -695,7 +695,7 @@ ef translate(sentence):
 <img width="311" alt="스크린샷 2023-03-24 오전 11 09 23" src="https://user-images.githubusercontent.com/121400054/227406457-acf2b6b8-dbc3-4c0d-b03e-5d27233e3954.png">
 
 
-## <준규> 느낀 점  
+### <준규> 느낀 점  
 
 1. konlpy morphs함수의 stem파라미터를 True로 주었을 때가 False로 주었을 때보다 BLEU score가 더 잘 나오는 경향이 있었으나,  
    과거형 그대로 번역해야 하는 문장의 뜻을 바꿔버리는 경향이 있음을 알 수 있었다.  
@@ -907,3 +907,82 @@ def translate(sentence):
 
 
 <img width="332" alt="스크린샷 2023-03-24 오후 1 06 40" src="https://user-images.githubusercontent.com/121400054/227421932-2f0a5dbe-29fe-4559-b3ec-a0baf5eba7da.png">
+
+
+### <은수> 느낀 점  
+  
+  
+1. train, test파일 BLEU score를 채점할 때, 무작정 랜덤으로 뽑는 것이 아닌,
+   random.seed를 이용해서 살짝 fix해서 랜덤으로 뽑았으면 그 범위가 좀 더 좁혀져서 BLEU score가 좀 더 잘 나오지 않았을까 생각한다.
+     
+ 
+### <은수> Bonus  
+  
+  
+추가로 은수님은 위 모델을 확장하여 다른 모델까지 구현을 하였다. reference는 역시 luong의 논문이다.  
+여기서는 Embedding Dimention을 500으로 줄여서 설정하였다. 다른 하이퍼 파라미터는 같다.  
+
+```python
+# 인코더(train)
+#two stacked lstm #two states
+enc_emb_layer = Embedding(SRC_VOCAB_SIZE, emb_dim)
+#encoder_lstm = LSTM(hid_dim, return_state=True)
+encoder_lstm1 = Bidirectional(LSTM(bi_hid_dim,dropout=0.5, return_sequences=True,return_state=True))
+encoder_lstm2 = Bidirectional(LSTM(bi_hid_dim,dropout=0.5, return_sequences=True,return_state=True))
+
+
+encoder_inputs= Input(shape=(None,))
+encoder_emb= enc_emb_layer(encoder_inputs)
+encoder_outputs1, forward_h1, forward_c1, backward_h1, backward_c1 = encoder_lstm1(encoder_emb)
+state_h1 = Concatenate()([forward_h1, backward_h1])
+state_c1 = Concatenate()([forward_c1, backward_c1])
+encoder_states1 = [state_h1,state_c1]
+encoder_outputs, forward_h, forward_c, backward_h, backward_c  = encoder_lstm2(encoder_outputs1)
+state_h = Concatenate()([forward_h, backward_h])
+state_c = Concatenate()([forward_c, backward_c])
+encoder_states = [state_h,state_c]
+```
+
+Bidirectional LSTM을 여기서는 2개를 쌓은 것을 볼 수 있다. 
+추가적으로, dropout을 0.5로 설정하였는데 논문에는 0.2로 되어있으나 다른 결과를 보기 위해 은수님이 변경하였다.  
+  
+  
+```python
+# 디코더(train)
+dec_emb_layer = Embedding(TAR_VOCAB_SIZE, hid_dim)
+decoder_lstm1 = LSTM(hid_dim, dropout=0.5,return_sequences=True,return_state=True)
+decoder_lstm2 = LSTM(hid_dim, dropout=0.5,return_sequences=True, return_state=True)
+decoder_dense1 = Dense(hid_dim,activation='tanh')
+decoder_dense2 = Dense(TAR_VOCAB_SIZE, activation='softmax')
+
+decoder_inputs = Input(shape=(None,))
+dec_emb = dec_emb_layer(decoder_inputs)
+decoder_outputs1, _, _= decoder_lstm1(dec_emb, initial_state = encoder_states1)
+decoder_outputs, _, _ = decoder_lstm2(decoder_outputs1, initial_state = encoder_states)
+attention = layers.Attention()([decoder_outputs,encoder_outputs])
+concat = Concatenate()([decoder_outputs,attention])
+dense1 = decoder_dense1(concat)
+decoder_outputs = decoder_dense2(dense1)
+```
+
+여기서도 LSTM을 2개를 쌓았다. 논문과 비슷하게 구현하려고 노력하였다고 한다.
+  
+  
+![그림2](https://user-images.githubusercontent.com/121400054/227423311-71555071-3816-4690-8551-ec103c3c0311.png)
+  
+  
+모델 요약본은 다음과 같다. 멋있는데 어지럽다. ㅋㅋㅋㅋㅋ
+결과는 다음과 같다. 학습은 5에폭을 하였고, batch_size는 128로 똑같다.  
+처음 모델보다는 결과가 안좋은데, 아마 충분히 학습했다면 더 좋은 결과가 나오지 않았을까 싶다.  
+  
+  
+<img width="335" alt="스크린샷 2023-03-24 오후 1 19 33" src="https://user-images.githubusercontent.com/121400054/227423482-18e97c7d-709e-4c77-ab45-4b648f01efcc.png">
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+  
+  
+이상으로 우리 팀원이 작성했던 모든 모델과 코드를 살펴보았다.  
+전처리 방법에 따라, 그리고 학습 모델에 따라 결과가 달라지는 부분을 보고 많은 부분을 배웠으면 좋겠다.  
+  
+  
