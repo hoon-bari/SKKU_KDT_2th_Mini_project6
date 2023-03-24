@@ -902,7 +902,7 @@ def translate(sentence):
 ### 번역 예시 및 BLEU score 결과  
   
   
-위 모델을 이용한 번역 예시 및 BLEU score는 다음과 같다. 학습은 20에폭을 하였다. batch_size는 128이다.  
+위 모델을 이용한 번역 예시 및 BLEU score는 다음과 같다. 학습은 11에폭을 하였다. batch_size는 128이다.  
 확실히 층이 깊어서 그런가... 문장 데이터와 길이를 감안하고도 점수가 높다.  
   
   
