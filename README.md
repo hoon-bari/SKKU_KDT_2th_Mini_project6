@@ -684,6 +684,8 @@ ef translate(sentence):
     return decoded_sentence.strip(' <eos>')
 ```
 
+### 번역 예시 및 BLEU score 결과  
+
 위의 모델로 실행한 번역 결과와 예측 결과는 다음과 같다. 학습은 10에폭, Batch_size는 128로 진행하였다.  
   
   
@@ -704,3 +706,204 @@ ef translate(sentence):
 -------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ## <은수>  
+  
+  
+<import한 파일>  
+구어체(1) 파일 / 20만 문장
+  
+  
+### Preprocessing 및 tokenizing   
+  
+  
+은수님의 경우 토크나이징에 한국어는 okt, 영어는 공백 스플릿 후 텐서플로 토크나이저로 시퀀스를 줬다.  
+그리고 특이한 점으로, 25단어 이상의 문장은 제외하였다는 것이다.  
+문장이 길어질 수록 결과가 잘 안나오기 때문에, 이렇게 처리를 하셨다고 한다.  
+  
+  
+<img width="398" alt="스크린샷 2023-03-24 오후 12 37 59" src="https://user-images.githubusercontent.com/121400054/227418340-242f2253-2ae2-4ed0-8cb7-b5f940638c74.png">
+
+  
+위는 한국어, 영어 각 문장의 단어길이 분포를 보여주는 그래프들이다. 
+  
+  
+<img width="619" alt="스크린샷 2023-03-24 오후 12 41 22" src="https://user-images.githubusercontent.com/121400054/227418774-fd336a23-958d-4d92-a8b3-9a25e2a20295.png">
+  
+  
+전처리 및 25단어 이상을 가진 문장을 제외한 결과이다.  
+한국어 단어 뭉치 수는 67370, 영어 단어 뭉치 수는 40879로, 20만 문장 치고는 상당히 단어 뭉치가 많다.
+  
+  
+### Translator Modeling (encoder, decoder)  
+  
+
+모델의 경우, 하이퍼파라미터는 이렇게 설정하였다.  
+emb_dim= 1000, hid_dim=256, bi_hid_dim=int(hid_dim/2)  
+특이한 점으로 bi_hid_dim이라는 것이 있는데, 이는 bidirectional(양방향)LSTM 모델에 적용한 dimention이다.  
+즉, bidirectional RNN 모델을 translator에 추가하였다. 
+이는 luong et al.(2015)이 작성한, 
+Effective Approaches to Attention-based Neural Machine Translation 논문에 있는 모델을 구현하기위해서였다고 한다.  
+실제로 논문에 있는 모델에서는 최대 6가지의 기법을 활용하여, 총 8개 모델의 BLEU score를 보여준다.  
+(Base + reverse + dropout + local attention + feed input + unk replace)  
+논문에 있는 것들을 최대한 구현하려고 한게 돋보인다.  
+  
+  
+```python
+# 인코더(train)
+enc_emb_layer = Embedding(SRC_VOCAB_SIZE, emb_dim)
+encoder_bilstm = Bidirectional(LSTM(bi_hid_dim,dropout=0.2, return_sequences=True,return_state=True)) 
+
+encoder_inputs= Input(shape=(None,))
+encoder_emb= enc_emb_layer(encoder_inputs)
+encoder_outputs, forward_h, forward_c, backward_h, backward_c  = encoder_bilstm(encoder_emb)
+state_h = Concatenate()([forward_h, backward_h])
+state_c = Concatenate()([forward_c, backward_c])
+encoder_states = [state_h,state_c]
+```
+  
+  
+encoder 모델에 bidirectional LSTM layer와, 
+그 층을 통과한 결과로 forward hidden/cell state, backward hidden/cell state가 나온 것을 볼수 있다.
+이것을 각각 concat하여, 나중에 attention을 위해 encoder_states라는 변수에 지정하였다.  
+  
+  
+```python
+# 디코더(train)
+dec_emb_layer = Embedding(TAR_VOCAB_SIZE, hid_dim)
+decoder_lstm = LSTM(hid_dim, dropout=0.2,return_sequences=True, return_state=True)
+decoder_dense1 = Dense(hid_dim,activation='tanh')
+decoder_dense2 = Dense(TAR_VOCAB_SIZE, activation='softmax')
+
+decoder_inputs = Input(shape=(None,))
+dec_emb = dec_emb_layer(decoder_inputs)
+decoder_outputs, _, _ = decoder_lstm(dec_emb, initial_state = encoder_states)
+attention = layers.Attention()([decoder_outputs,encoder_outputs])
+concat = Concatenate()([decoder_outputs,attention])
+dense1 = decoder_dense1(concat)
+decoder_outputs = decoder_dense2(dense1)
+```
+  
+  
+decoder모델은 bidierctional이 아닌 그냥 LSTM을 적용하였다. 내 모델과 다른 부분이 하나 있다면,  
+내 모델은 Dropout층을 하나 아예 만들었고 은수님 모델은 LSTM에 dropout을 적용했다는 것이다.  
+  
+  
+```python
+Model: "model"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_1 (InputLayer)           [(None, None)]       0           []                               
+                                                                                                  
+ embedding (Embedding)          (None, None, 1000)   67370000    ['input_1[0][0]']                
+                                                                                                  
+ input_2 (InputLayer)           [(None, None)]       0           []                               
+                                                                                                  
+ bidirectional (Bidirectional)  [(None, None, 256),  1156096     ['embedding[0][0]']              
+                                 (None, 128),                                                     
+                                 (None, 128),                                                     
+                                 (None, 128),                                                     
+                                 (None, 128)]                                                     
+                                                                                                  
+ embedding_1 (Embedding)        (None, None, 256)    10465024    ['input_2[0][0]']                
+                                                                                                  
+ concatenate (Concatenate)      (None, 256)          0           ['bidirectional[0][1]',          
+                                                                  'bidirectional[0][3]']          
+                                                                                                  
+ concatenate_1 (Concatenate)    (None, 256)          0           ['bidirectional[0][2]',          
+                                                                  'bidirectional[0][4]']          
+                                                                                                  
+ lstm_1 (LSTM)                  [(None, None, 256),  525312      ['embedding_1[0][0]',            
+                                 (None, 256),                     'concatenate[0][0]',            
+                                 (None, 256)]                     'concatenate_1[0][0]']          
+                                                                                                  
+ attention (Attention)          (None, None, 256)    0           ['lstm_1[0][0]',                 
+                                                                  'bidirectional[0][0]']          
+                                                                                                  
+ concatenate_2 (Concatenate)    (None, None, 512)    0           ['lstm_1[0][0]',                 
+                                                                  'attention[0][0]']              
+                                                                                                  
+ dense (Dense)                  (None, None, 256)    131328      ['concatenate_2[0][0]']          
+                                                                                                  
+ dense_1 (Dense)                (None, None, 40879)  10505903    ['dense[0][0]']                  
+                                                                                                  
+==================================================================================================
+Total params: 90,153,663
+Trainable params: 90,153,663
+Non-trainable params: 0
+```
+  
+  
+위 모델의 summary결과이다. 확실히 Embedding Dimention이 1000개에, bidirectional LSTM등을 쓰니 파라미터가 큰 것이 보인다.  
+
+
+![그림](https://user-images.githubusercontent.com/121400054/227421046-e9103edb-d402-47d1-9a91-04bf9bbfdffd.png)
+
+
+위 모델을 시각화한 그림이다. 아 나도 이거 한다는걸 까먹었네 ;;  
+다음은 예측을 위한 Encoder 및 decoder모델 코드이다. 내 모델과 다른 부분은 없다.
+
+```python
+
+# 인코더(predict)
+encoder_model = Model(encoder_inputs, [encoder_states,encoder_outputs])
+
+# 디코더(predict)
+decoder_input_h = Input(shape=(hid_dim,))
+decoder_input_c = Input(shape=(hid_dim,))
+decoder_encoder_outputs =Input(shape=(MAX_ENC_LEN,hid_dim,))
+
+decoder_states_inputs = [decoder_input_h,decoder_input_c]
+
+x= dec_emb_layer(decoder_inputs)
+
+x, state_h2, state_c2 = decoder_lstm(x, initial_state=decoder_states_inputs)
+
+decoder_states2 = [state_h2, state_c2]
+
+attention = layers.Attention()([x,decoder_encoder_outputs])
+concat = layers.Concatenate()([x,attention])
+dense1 = decoder_dense1(concat)
+x = decoder_dense2(dense1)
+
+
+decoder_model = Model([decoder_inputs]+decoder_states_inputs+[decoder_encoder_outputs], [x]+decoder_states2)
+```
+
+다음은 translate함수의 코드이다. 이 부분도 다른 것은 없다.
+
+```python
+def translate(sentence):
+    sentence = preprocesskr(sentence)
+    enc_input = tokenizer_enc.texts_to_sequences([sentence])
+    enc_input = pad_sequences(enc_input, maxlen=MAX_ENC_LEN, padding='post')
+    states_value, output_value = encoder_model.predict(enc_input)
+    target_seq = np.zeros((1,1))
+    target_seq[0,0] = tar2idx['<sos>']
+
+    stop_condition = False
+    decoded_sentence = ''
+
+    for t in range(MAX_DEC_LEN):
+        output_tokens, h, c = decoder_model.predict([target_seq]+ states_value+[output_value], verbose=0)
+        result_token_index = np.argmax(output_tokens[0,-1,:])
+        result_word = idx2tar[result_token_index]
+        decoded_sentence += ' '+result_word
+        target_seq = np.zeros((1,1))
+        target_seq[0,0] = result_token_index
+        states_value = [h,c]
+        if result_word == '<eos>':
+            break
+
+    return decoded_sentence.strip(' <eos>')
+```
+
+### 번역 예시 및 BLEU score 결과  
+  
+  
+위 모델을 이용한 번역 예시 및 BLEU score는 다음과 같다. 학습은 10에폭을 하였다. batch_size는 128이다.
+  
+  
+<img width="563" alt="스크린샷 2023-03-24 오후 1 04 33" src="https://user-images.githubusercontent.com/121400054/227421719-88c7cce4-186f-4369-be84-4d5a5e85efab.png">
+
+
+<img width="332" alt="스크린샷 2023-03-24 오후 1 06 40" src="https://user-images.githubusercontent.com/121400054/227421932-2f0a5dbe-29fe-4559-b3ec-a0baf5eba7da.png">
