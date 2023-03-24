@@ -739,8 +739,8 @@ ef translate(sentence):
 모델의 경우, 하이퍼파라미터는 이렇게 설정하였다.  
 emb_dim= 1000, hid_dim=256, bi_hid_dim=int(hid_dim/2)  
 특이한 점으로 bi_hid_dim이라는 것이 있는데, 이는 bidirectional(양방향)LSTM 모델에 적용한 dimention이다.  
-즉, bidirectional RNN 모델을 translator에 추가하였다. 
-이는 luong et al.(2015)이 작성한, 
+즉, bidirectional RNN 모델을 translator에 추가하였다.  
+이는 luong et al.(2015)이 작성한,  
 Effective Approaches to Attention-based Neural Machine Translation 논문에 있는 모델을 구현하기위해서였다고 한다.  
 실제로 논문에 있는 모델에서는 최대 6가지의 기법을 활용하여, 총 8개 모델의 BLEU score를 보여준다.  
 (Base + reverse + dropout + local attention + feed input + unk replace)  
@@ -762,7 +762,7 @@ encoder_states = [state_h,state_c]
   
   
 encoder 모델에 bidirectional LSTM layer와, 
-그 층을 통과한 결과로 forward hidden/cell state, backward hidden/cell state가 나온 것을 볼수 있다.
+그 층을 통과한 결과로 forward hidden/cell state, backward hidden/cell state가 나온 것을 볼수 있다.  
 이것을 각각 concat하여, 나중에 attention을 위해 encoder_states라는 변수에 지정하였다.  
   
   
@@ -783,7 +783,7 @@ decoder_outputs = decoder_dense2(dense1)
 ```
   
   
-decoder모델은 bidierctional이 아닌 그냥 LSTM을 적용하였다. 내 모델과 다른 부분이 하나 있다면,  
+decoder모델은 bidierctional이 아닌 그냥 LSTM을 적용하였다. 내 모델과 다른 부분이 하나 있다면,   
 내 모델은 Dropout층을 하나 아예 만들었고 은수님 모델은 LSTM에 dropout을 적용했다는 것이다.  
   
   
