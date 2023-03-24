@@ -499,3 +499,207 @@ output, state를 리턴하며 그 state와 encoder_output이 attention을 위해
   
   
 -------------------------------------------------------------------------------------------------------------------------------------------------------
+  
+## <준규>  
+
+<import한 파일>  
+구어체(1) 파일 / 20만 문장
+
+### Preprocessing 및 tokenizing   
+  
+준규의 경우 한글에는 mecab, 영어는 텐서플로 토크나이저의 text_to_word_sequence를 사용하였다.
+텐서플로 토크나이저의 text_to_word_sequence가 스플릿 및 소문자로도 자동으로 바꿔줬고, 끊어주는 것이 더 마음에 들었다고함.  
+확인 결과, 진짜 깔끔하게 잘리긴 했다.  
+  
+<img width="960" alt="스크린샷 2023-03-24 오전 10 48 47" src="https://user-images.githubusercontent.com/121400054/227403782-db006398-6d67-4c4c-99f4-b493bf29b9b3.png">
+  
+  
+이렇게 자른 결과 단어뭉치의 크기는 한국어가 37934개, 영어가 40004개 였다.  
+  
+  
+### Translator Modeling (encoder, decoder)  
+  
+  
+번역기의 경우는 단순 seq2seq로 구현하였다.  
+  
+  
+```python
+
+# 인코더 (Train)
+
+## 층 
+enc_emb_layer = Embedding(SRC_VOCAB_SIZE, EMBEDDING_DIM) # (201489, 64) SRC_VOCAB_SIZE는 한국어단어 집합의 크기
+encoder_lstm = LSTM(HIDDEN_DIM, return_state = True) # 256, 상태값 리턴을 위해 return_state는 True
+
+
+## input -> output 
+encoder_inputs = Input(shape=(None, ))
+enc_emb = enc_emb_layer(encoder_inputs)
+encoder_outputs, state_h, state_c =  encoder_lstm(enc_emb)
+
+encoder_states = [state_h, state_c] # 인코더의 은닉 상태와 셀 상태를 리스트로 저장
+```
+  
+  
+학습 인코더의 경우 return_sequence = False로, 마지막 층의 상태만 나오도록 했다.  
+  
+  
+```python
+
+# 디코더 (Train)
+decoder_inputs = Input(shape=(None, ))
+
+## 층
+#상태값 리턴을 위해 lstm layer return_state는 True, 모든 시점에 대해서 단어를 예측하기 위해 return_sequences는 True
+dec_emb_layer = Embedding(TAR_VOCAB_SIZE, HIDDEN_DIM)
+decoder_lstm = LSTM(HIDDEN_DIM, return_sequences=True, return_state = True) 
+decoder_dense = Dense(TAR_VOCAB_SIZE, activation = 'softmax')
+
+
+## input -> output 
+# 인코더 RNN의 은닉 상태를 초기 은닉 상태(initial_state)로 사용
+dec_emb = dec_emb_layer(decoder_inputs)
+decoder_outputs, _, _ = decoder_lstm(dec_emb, initial_state = encoder_states)
+
+# 모든 시점의 결과에 대해서 소프트맥스 함수를 사용한 출력층을 통해 단어 예측
+decoder_outputs = decoder_dense(decoder_outputs)
+```
+  
+  
+학습 디코더의 경우, 어텐션 층 없이 바로 RNN층과 softmax를 통해 결과를 예측하도록 했다.
+model summary는 다음과 같다.
+  
+  
+```python
+Model: "model"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_1 (InputLayer)           [(None, None)]       0           []                               
+                                                                                                  
+ input_2 (InputLayer)           [(None, None)]       0           []                               
+                                                                                                  
+ embedding (Embedding)          (None, None, 64)     2427776     ['input_1[0][0]']                
+                                                                                                  
+ embedding_1 (Embedding)        (None, None, 256)    10241024    ['input_2[0][0]']                
+                                                                                                  
+ lstm (LSTM)                    [(None, 256),        328704      ['embedding[0][0]']              
+                                 (None, 256),                                                     
+                                 (None, 256)]                                                     
+                                                                                                  
+ lstm_1 (LSTM)                  [(None, None, 256),  525312      ['embedding_1[0][0]',            
+                                 (None, 256),                     'lstm[0][1]',                   
+                                 (None, 256)]                     'lstm[0][2]']                   
+                                                                                                  
+ dense (Dense)                  (None, None, 40004)  10281028    ['lstm_1[0][0]']                 
+                                                                                                  
+==================================================================================================
+Total params: 23,803,844
+Trainable params: 23,803,844
+Non-trainable params: 0
+```
+  
+  
+훈련을 시킬 때 encoder_model과 decoder_model은 다음과 같이 정의하였다.  
+  
+  
+```python
+# 인코더 - 훈련과 동일
+encoder_model = Model(encoder_inputs, encoder_states)
+
+# 디코더 (Predict)
+# Input Tensors : 이전 시점의 상태를 보관할 텐서
+decoder_input_h = Input(shape=(HIDDEN_DIM,))
+decoder_input_c = Input(shape=(HIDDEN_DIM,))
+
+decoder_states_inputs = [decoder_input_h, decoder_input_c]
+
+# 훈련 때 사용했던 임베딩 층을 재사용
+x = dec_emb_layer(decoder_inputs)
+
+# 다음 단어 예측을 위해 이전 시점의 상태를 현 시점의 초기 상태로 사용
+x, state_h2, state_c2 = decoder_lstm(x, initial_state=decoder_states_inputs)
+decoder_states2 = [state_h2, state_c2]
+
+# 모든 시점에 대해서 단어 예측 (Fully Connected)
+x = decoder_dense(x)
+
+# 수정된 디코더
+decoder_model = Model(
+    [decoder_inputs] + decoder_states_inputs,
+    [x] + decoder_states2)
+```
+  
+  
+마지막으로 Translate함수는 아래와 같이 정의하였다.  
+  
+  
+```python
+ef translate(sentence):
+    tokens = preprocess_korean_sentence(sentence)
+    # tokens = sentence.split(" ")
+
+    # 입력 문장 토큰 -> 라벨링
+    enc_input = tokenizer_enc.texts_to_sequences([tokens])
+
+    # 입력 문장 라벨링 -> 패딩 
+    enc_input = tf.keras.preprocessing.sequence.pad_sequences(enc_input, maxlen=MAX_ENC_LEN, padding='post')
+    states_value = encoder_model.predict(enc_input)
+
+    # Decoder input인 <SOS>에 해당하는 정수 생성
+    target_seq = np.zeros((1,1))
+    target_seq[0, 0] = tar2idx['<sos>']
+
+
+    # prediction 시작
+        # stop_condition이 True가 될 때까지 루프 반복
+        # 구현의 간소화를 위해서 이 함수는 배치 크기를 1로 가정합니다.
+    stop_condition = False
+    decoded_sentence = ''
+
+    for t in range(MAX_DEC_LEN):
+
+        # 이점 시점의 상태 states_value를 현 시점의 초기 상태로 사용
+        output_tokens, h, c = decoder_model.predict([target_seq] + states_value, verbose = 0)
+
+        # 예측 결과를 단어로 변환
+        result_token_index = np.argmax(output_tokens[0, -1, :])
+        result_word = idx2tar[result_token_index]
+
+        # 현재 시점의 예측 단어를 예측 문장에 추가
+        decoded_sentence += ' '+result_word
+
+        # 현재 시점의 예측 결과 -> 다음 시점의 입력으로 업데이트
+        target_seq = np.zeros((1,1))
+        target_seq[0, 0] = result_token_index
+
+        # 현재 시점의 상태 ->  다음 시점의 상태로 업데이트
+        states_value = [h, c]
+
+        #  Stop condition <eos>에 도달하면 중단.
+        if result_word == '<eos>':
+            break 
+
+    return decoded_sentence.strip(' <eos>')
+```
+
+위의 모델로 실행한 번역 결과와 예측 결과는 다음과 같다. 학습은 10에폭, Batch_size는 128로 진행하였다.  
+  
+  
+<img width="760" alt="스크린샷 2023-03-24 오전 11 07 16" src="https://user-images.githubusercontent.com/121400054/227406239-94dbdcc4-1c1b-4b68-a84a-540ecb7ace2d.png">
+  
+  
+<img width="311" alt="스크린샷 2023-03-24 오전 11 09 23" src="https://user-images.githubusercontent.com/121400054/227406457-acf2b6b8-dbc3-4c0d-b03e-5d27233e3954.png">
+
+
+## <준규> 느낀 점  
+
+1. konlpy morphs함수의 stem파라미터를 True로 주었을 때가 False로 주었을 때보다 BLEU score가 더 잘 나오는 경향이 있었으나,  
+   과거형 그대로 번역해야 하는 문장의 뜻을 바꿔버리는 경향이 있음을 알 수 있었다.  
+
+2. 또한 각종 조사와 불용어를 제거하여 직관적으로 번역하면 준수한 결과가 나올 것이라고 예상하여 한국어, 영어 stopword를 설정했으나, 
+   오히려 BLEU score가 형편없게 나와버리는 경향이 있었다.  
+   
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+## <은수>  
