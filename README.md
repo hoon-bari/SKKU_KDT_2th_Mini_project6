@@ -1,5 +1,5 @@
 ### SKKU KDT 2기 - 미니프로젝트 6차   
-한영번역기 만들기 프로젝트입니다.   
+한영번역기 만들기 프로젝트입니다.      
    
 ![001](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/9876acbf-eafb-4aeb-a982-36ab40ce63b8)
 ![002](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/07236d55-68d5-4084-a15f-a510b644ef29)
