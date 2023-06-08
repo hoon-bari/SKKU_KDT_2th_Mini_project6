@@ -1,2 +1,21 @@
-# python-project6
-파이썬 프로젝트(6차) 저장소
+### SKKU KDT 2기 - 미니프로젝트 6차   
+한영번역기 만들기 프로젝트입니다.   
+   
+![001](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/9876acbf-eafb-4aeb-a982-36ab40ce63b8)
+![002](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/07236d55-68d5-4084-a15f-a510b644ef29)
+![003](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/17ec8799-8b4f-4282-a6d2-213f0c7986da)
+![004](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/65b9d38b-ee21-49b2-9681-ef0c67974c97)
+![005](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/4d5d45fe-b256-490d-91a4-89ed4e0765c1)
+![006](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/5ede7ae1-d8d6-41d1-acc0-ba1e0fcd243f)
+![007](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/f7c8b986-161c-4e99-9d86-72b3c0344733)
+![008](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/c645510e-1529-4d93-8321-7c95f572166b)
+![009](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/396b07de-2395-40c4-8681-d48e7c1609f7)
+![010](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/f040d171-0b75-4f10-9b4c-ac12f02fa825)
+![011](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/38c846da-4224-4e29-92d1-d61e5cf663eb)
+![012](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/376e8802-06c0-494a-839f-0105fed01362)
+![013](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/4f11dddf-4956-44d3-accf-79005eff3d5b)
+![014](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/64b98f96-1931-4728-a724-6565a092ab97)
+![015](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/76e80dc2-cbdf-494d-abc3-c51a85b85036)
+![016](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/219ca784-1c13-4785-8afb-7d8d85937b81)
+![017](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/586dad11-e96f-47d1-870b-f1e0dfc1aedf)
+![018](https://github.com/hoon-bari/SKKU_KDT_2th_Mini_project6/assets/121400054/e038247a-55d3-4731-a436-05be2c83ed8e)
